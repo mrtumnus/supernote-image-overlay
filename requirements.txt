@@ -1,0 +1,8 @@
+# Image Overlay Script Requirements
+# Install with: pip install -r requirements.txt
+
+# PIL (Python Imaging Library) - for image manipulation
+Pillow>=10.0.0
+
+# Optional: For better clipboard support on Linux
+# pyclip>=0.7.0
