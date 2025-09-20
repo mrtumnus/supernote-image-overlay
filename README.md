@@ -98,6 +98,9 @@ it. Then syncing on the device will allow you to use the template within a note.
   - `1.0` = original size
   - `2.0` = double size
   - `0.5` = half size
+  - You can also pass the literal string `width` to `--zoom` to scale the foreground
+    image so its width matches the background width minus the horizontal margins.
+    Example: `--zoom width --margin 30` will make the foreground width = background_width - 60
 
 ## Examples
 

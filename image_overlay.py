@@ -98,8 +98,28 @@ def resize_image(image: Image.Image, zoom: float) -> Image.Image:
     return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
 
+def resize_image_to_width(image: Image.Image, target_width: int) -> Image.Image:
+    """
+    Resize an image so its width matches target_width while preserving aspect ratio.
+
+    Args:
+        image: PIL Image to resize
+        target_width: Desired width in pixels
+
+    Returns:
+        Resized PIL Image
+    """
+    original_width, original_height = image.size
+    if original_width == 0:
+        return image
+    scale = target_width / original_width
+    new_width = int(original_width * scale)
+    new_height = int(original_height * scale)
+    return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+
 def overlay_images(background_path: str, foreground_image: Image.Image, 
-                  h_align: str, v_align: str, margin: int, zoom: float, 
+                  h_align: str, v_align: str, margin: int, zoom, 
                   output_path: str) -> bool:
     """
     Overlay the foreground image onto the background image.
@@ -124,9 +144,22 @@ def overlay_images(background_path: str, foreground_image: Image.Image,
         if background.mode != 'RGBA':
             background = background.convert('RGBA')
         
-        # Resize foreground image if needed
-        if zoom != 1.0:
-            foreground_image = resize_image(foreground_image, zoom)
+        # Resize foreground image according to zoom argument.
+        # zoom can be the string 'width' to indicate fit-to-width, or a numeric factor.
+        if isinstance(zoom, str) and zoom.lower() == 'width':
+            bg_width, bg_height = background.size
+            available_width = max(0, bg_width - (margin * 2))
+            # Avoid resizing to zero
+            if available_width > 0 and foreground_image.size[0] != available_width:
+                foreground_image = resize_image_to_width(foreground_image, available_width)
+        else:
+            # Treat zoom as a numeric factor
+            try:
+                zoom_value = float(zoom)
+            except Exception:
+                zoom_value = 1.0
+            if zoom_value != 1.0:
+                foreground_image = resize_image(foreground_image, zoom_value)
         
         # Convert foreground to RGBA if needed
         if foreground_image.mode != 'RGBA':
@@ -205,8 +238,10 @@ Examples:
     parser.add_argument('--margin', '-m', type=int, default=150,
                        help='Margin in pixels from edges (default: 150)')
     
-    parser.add_argument('--zoom', '-z', type=float, default=2.0,
-                       help='Zoom factor for foreground image (default: 2.0)')
+    # Accept either a numeric zoom factor or the literal string 'width' to indicate
+    # that the foreground should be scaled to fit the background width minus margins.
+    parser.add_argument('--zoom', '-z', default='2.0',
+                       help="Zoom factor (e.g. 1.5). Pass the literal string 'width' to scale foreground to background width minus margins.")
     
     args = parser.parse_args()
     
@@ -237,10 +272,20 @@ Examples:
             print("Error: Could not get image from clipboard")
             sys.exit(1)
     
-    # Validate zoom factor
-    if args.zoom <= 0:
-        print("Error: Zoom factor must be greater than 0")
-        sys.exit(1)
+    # Validate zoom factor or special 'width' mode
+    zoom_mode = 'factor'
+    zoom_value = 1.0
+    if isinstance(args.zoom, str) and args.zoom.lower() == 'width':
+        zoom_mode = 'width'
+    else:
+        try:
+            zoom_value = float(args.zoom)
+            if zoom_value <= 0:
+                print("Error: Zoom factor must be greater than 0")
+                sys.exit(1)
+        except ValueError:
+            print("Error: --zoom must be a positive number or the literal 'width'")
+            sys.exit(1)
     
     # Validate margin
     if args.margin < 0:
@@ -262,28 +307,35 @@ Examples:
         print(f"Error: Invalid vertical alignment. Must be one of: {valid_v}")
         sys.exit(1)
     
-    # Create output directory if it doesn't exist
-    output_dir = os.path.dirname(args.output) + '/'
-    if output_dir:
-        if '*' in output_dir:
-            dirs = glob(output_dir)
-            if dirs:
-                output_dir = dirs[0]
-            else:
-                print(f"Error: Output directory not found: {output_dir}")
-                sys.exit(1)
-        elif not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    # Create output directory if it doesn't exist. If no directory provided, use current dir.
+    output_dir = os.path.dirname(args.output)
+    if not output_dir:
+        output_dir = '.'
+
+    # Handle wildcard directories like 'some/*/path/'
+    if '*' in output_dir:
+        dirs = glob(output_dir)
+        if dirs:
+            output_dir = dirs[0]
+        else:
+            print(f"Error: Output directory not found: {output_dir}")
+            sys.exit(1)
+    else:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
     output_file = os.path.join(output_dir, os.path.basename(args.output))
 
     # Perform the overlay operation
+    # If zoom_mode is 'width', pass a marker string; otherwise pass the numeric zoom_value
+    zoom_arg = 'width' if zoom_mode == 'width' else zoom_value
     success = overlay_images(
         background,
         foreground_image,
         h_align,
         v_align,
         args.margin,
-        args.zoom,
+        zoom_arg,
         output_file
     )
     
