@@ -17,6 +17,7 @@ import sys
 from PIL import Image, ImageGrab
 from typing import Tuple, Optional
 import os
+from glob import glob
 
 
 def get_clipboard_image() -> Optional[Image.Image]:
@@ -183,15 +184,15 @@ Examples:
     
     # Required arguments
     parser.add_argument('--background', '-b', required=True,
-                       help='Path to the background image file')
+                       help='Path to the background image file (wildcards supported)')
     
     parser.add_argument('--output', '-o', required=True,
-                       help='Path to save the output image')
+                       help='Path to save the output image (wildcards supported in path)')
     
     # Foreground image source (mutually exclusive)
     fg_group = parser.add_mutually_exclusive_group(required=True)
     fg_group.add_argument('--foreground', '-f',
-                         help='Path to the foreground image file')
+                         help='Path to the foreground image file (wildcards supported)')
     fg_group.add_argument('--clipboard', '-c', action='store_true',
                          help='Use image from clipboard as foreground')
     
@@ -210,17 +211,23 @@ Examples:
     args = parser.parse_args()
     
     # Validate input files
-    if not os.path.exists(args.background):
+    background = glob(args.background)
+    if not background:
         print(f"Error: Background image file not found: {args.background}")
         sys.exit(1)
+    else:
+        background = background[0]
     
     # Get foreground image
     if args.foreground:
-        if not os.path.exists(args.foreground):
+        foreground = glob(args.foreground)
+        if not foreground:
             print(f"Error: Foreground image file not found: {args.foreground}")
             sys.exit(1)
+        else:
+            foreground = foreground[0]
         try:
-            foreground_image = Image.open(args.foreground)
+            foreground_image = Image.open(foreground)
         except Exception as e:
             print(f"Error loading foreground image: {e}")
             sys.exit(1)
@@ -256,19 +263,28 @@ Examples:
         sys.exit(1)
     
     # Create output directory if it doesn't exist
-    output_dir = os.path.dirname(args.output)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
+    output_dir = os.path.dirname(args.output) + '/'
+    if output_dir:
+        if '*' in output_dir:
+            dirs = glob(output_dir)
+            if dirs:
+                output_dir = dirs[0]
+            else:
+                print(f"Error: Output directory not found: {output_dir}")
+                sys.exit(1)
+        elif not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    output_file = os.path.join(output_dir, os.path.basename(args.output))
+
     # Perform the overlay operation
     success = overlay_images(
-        args.background,
+        background,
         foreground_image,
         h_align,
         v_align,
         args.margin,
         args.zoom,
-        args.output
+        output_file
     )
     
     if not success:
@@ -276,12 +292,12 @@ Examples:
     
     print(f"Image overlay completed successfully!")
     print(f"Settings used:")
-    print(f"  Background: {args.background}")
-    print(f"  Foreground: {'clipboard' if args.clipboard else args.foreground}")
+    print(f"  Background: {background}")
+    print(f"  Foreground: {'clipboard' if args.clipboard else foreground}")
     print(f"  Alignment: {h_align} {v_align}")
     print(f"  Margin: {args.margin}px")
     print(f"  Zoom: {args.zoom}x")
-    print(f"  Output: {args.output}")
+    print(f"  Output: {output_file}")
 
 
 if __name__ == '__main__':

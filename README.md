@@ -1,9 +1,9 @@
-# Image Overlay Script
+# Supernote Image Overlay Script
 
 A Python script that overlays a foreground image on top of a background image with customizable positioning, margins, and zoom levels. The foreground image can be loaded from a file or from the system clipboard.
 
 The primary intent of this project is to provide a convenient method for
-producing a template containing an image from a PC (including screenshot).
+producing a Supernote template containing an image from a PC (including screenshot).
 
 Note: This could probably also be accomplished using ImageMagick.
 
@@ -29,6 +29,11 @@ Or install Pillow directly:
 pip install Pillow
 ```
 
+### Linux
+
+On Linux, `xclip` must be installed to support clipoard operation.  Use your
+system package manager to install it.
+
 ## Usage
 
 ### Basic Usage
@@ -53,6 +58,22 @@ python image_overlay.py --background bg.jpg --foreground fg.png --align center c
 # Bottom-right corner with small zoom and large margin
 python image_overlay.py --background bg.jpg --foreground fg.png --align right bottom --margin 200 --zoom 0.8 --output result.jpg
 ```
+
+### Supernote Partner App Usage (Windows)
+
+The Supernote Partner App stores files for sync in:
+```bat
+%APPDATA%\com.ratta\supernote_partner\<big long ID>\Supernote\
+```
+
+So, armed with this knowledge, one can directly generate a template file from 
+a clipboard snapshot in the MyStyle folder of the sync directory:
+```bash
+python image_overlay.py --background bg.png --clipboard --output "%APPDATA%\com.ratta\supernote_partner\<big long ID>\Supernote\MyStyle\insert.png"
+```
+
+This file will immediately appear in the Partner App and you will be able to sync
+it. Then syncing on the device will allow you to use the template within a note.
 
 ## Command Line Options
 
